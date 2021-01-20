@@ -1,7 +1,7 @@
 package com.wugui.datax.admin.tool.meta;
 
 /**
- * TODO
+ * SqlServer数据库 meta信息查询
  *
  * @author zhouhongfa@gz-yibo.com
  * @ClassName SqlServerDatabaseMeta
@@ -23,7 +23,21 @@ public class SqlServerDatabaseMeta extends BaseDatabaseMeta implements DatabaseI
     }
 
     @Override
-    public String getSQLQueryTables(String... args) {
+    public String getSQLQueryTables() {
         return "SELECT Name FROM SysObjects Where XType='U' ORDER BY Name";
     }
+
+    @Override
+    public String getSQLQueryTables(String... tableSchema) {
+        return "select schema_name(schema_id)+'.'+object_name(object_id) from sys.objects \n" +
+                "where type ='U' \n" +
+                "and schema_name(schema_id) ='" + tableSchema[0] + "'";
+
+    }
+
+    @Override
+    public String getSQLQueryTableSchema(String... args) {
+        return "select distinct schema_name(schema_id) from sys.objects where type ='U';";
+    }
+
 }

@@ -21,7 +21,7 @@ public class JwtUser implements UserDetails {
     }
 
     // 写一个能直接使用user创建jwtUser的构造器
-    public JwtUser(XxlJobUser user) {
+    public JwtUser(JobUser user) {
         id = user.getId();
         username = user.getUsername();
         password = user.getPassword();
@@ -61,6 +61,14 @@ public class JwtUser implements UserDetails {
     @Override
     public boolean isEnabled() {
         return true;
+    }
+
+    public Integer getId() {
+        return id;
+    }
+
+    public void setId(Integer id) {
+        this.id = id;
     }
 
     @Override

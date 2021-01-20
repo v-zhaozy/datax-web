@@ -1,7 +1,7 @@
 package com.wugui.datax.admin.tool.meta;
 
 /**
- * TODO
+ * MySQL数据库 meta信息查询
  *
  * @author zhouhongfa@gz-yibo.com
  * @ClassName MySQLDatabaseMeta
@@ -34,7 +34,7 @@ public class MySQLDatabaseMeta extends BaseDatabaseMeta implements DatabaseInter
     }
 
     @Override
-    public String getSQLQueryTables(String... args) {
+    public String getSQLQueryTables() {
         return "show tables";
     }
 

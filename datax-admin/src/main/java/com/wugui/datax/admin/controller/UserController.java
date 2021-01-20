@@ -1,169 +1,148 @@
 package com.wugui.datax.admin.controller;
 
+import cn.hutool.core.util.StrUtil;
 import com.wugui.datatx.core.biz.model.ReturnT;
 import com.wugui.datax.admin.core.util.I18nUtil;
-import com.wugui.datax.admin.entity.XxlJobGroup;
-import com.wugui.datax.admin.entity.XxlJobUser;
-import com.wugui.datax.admin.mapper.XxlJobGroupMapper;
-import com.wugui.datax.admin.mapper.XxlJobUserMapper;
-import com.wugui.datax.admin.service.impl.LoginService;
+import com.wugui.datax.admin.entity.JobUser;
+import com.wugui.datax.admin.mapper.JobUserMapper;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.ui.Model;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
-import javax.servlet.http.HttpServletRequest;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import static com.wugui.datatx.core.biz.model.ReturnT.FAIL_CODE;
 
 /**
  * Created by jingwk on 2019/11/17
  */
 @RestController
-@RequestMapping("/user")
+@RequestMapping("/api/user")
 @Api(tags = "用户信息接口")
 public class UserController {
 
     @Resource
-    private XxlJobUserMapper xxlJobUserMapper;
-    @Resource
-    private XxlJobGroupMapper xxlJobGroupMapper;
+    private JobUserMapper jobUserMapper;
 
     @Resource
     private BCryptPasswordEncoder bCryptPasswordEncoder;
 
-    @PostMapping("/register")
-    public int registerUser(@RequestBody Map<String,String> registerUser){
-        XxlJobUser user = new XxlJobUser();
-        user.setUsername(registerUser.get("username"));
-        user.setPassword(bCryptPasswordEncoder.encode(registerUser.get("password")));
-        user.setRole("ROLE_USER");
-        return xxlJobUserMapper.save(user);
-    }
-
-
-    @GetMapping
-    public ReturnT<List<XxlJobGroup>> index(Model model) {
-        // 执行器列表
-        return new ReturnT<List<XxlJobGroup>>(xxlJobGroupMapper.findAll());
-    }
 
     @GetMapping("/pageList")
     @ApiOperation("用户列表")
-    public Map<String, Object> pageList(@RequestParam(required = false, defaultValue = "0") int start,
-                                        @RequestParam(required = false, defaultValue = "10") int length,
-                                        String username, int role) {
+    public ReturnT<Map<String, Object>> pageList(@RequestParam(required = false, defaultValue = "1") int current,
+                                                 @RequestParam(required = false, defaultValue = "10") int size,
+                                                 String username) {
 
         // page list
-        List<XxlJobUser> list = xxlJobUserMapper.pageList(start, length, username, role);
-        int list_count = xxlJobUserMapper.pageListCount(start, length, username, role);
+        List<JobUser> list = jobUserMapper.pageList((current - 1) * size, size, username);
+        int recordsTotal = jobUserMapper.pageListCount((current - 1) * size, size, username);
 
         // package result
-        Map<String, Object> maps = new HashMap<String, Object>();
-        maps.put("recordsTotal", list_count);		// 总记录数
-        maps.put("recordsFiltered", list_count);	// 过滤后的总记录数
-        maps.put("data", list);  					// 分页列表
-        return maps;
+        Map<String, Object> maps = new HashMap<>();
+        maps.put("recordsTotal", recordsTotal);        // 总记录数
+        maps.put("recordsFiltered", recordsTotal);    // 过滤后的总记录数
+        maps.put("data", list);                    // 分页列表
+        return new ReturnT<>(maps);
+    }
+
+    @GetMapping("/list")
+    @ApiOperation("用户列表")
+    public ReturnT<List<JobUser>> list(String username) {
+
+        // page list
+        List<JobUser> list = jobUserMapper.findAll(username);
+        return new ReturnT<>(list);
+    }
+
+    @GetMapping("/getUserById")
+    @ApiOperation(value = "根据id获取用户")
+    public ReturnT<JobUser> selectById(@RequestParam("userId") Integer userId) {
+        return new ReturnT<>(jobUserMapper.getUserById(userId));
     }
 
     @PostMapping("/add")
     @ApiOperation("添加用户")
-    public ReturnT<String> add(@RequestBody XxlJobUser xxlJobUser) {
+    public ReturnT<String> add(@RequestBody JobUser jobUser) {
 
         // valid username
-        if (!StringUtils.hasText(xxlJobUser.getUsername())) {
-            return new ReturnT<String>(ReturnT.FAIL_CODE, I18nUtil.getString("system_please_input")+I18nUtil.getString("user_username") );
+        if (!StringUtils.hasText(jobUser.getUsername())) {
+            return new ReturnT<>(FAIL_CODE, I18nUtil.getString("system_please_input") + I18nUtil.getString("user_username"));
         }
-        xxlJobUser.setUsername(xxlJobUser.getUsername().trim());
-        if (!(xxlJobUser.getUsername().length()>=4 && xxlJobUser.getUsername().length()<=20)) {
-            return new ReturnT<String>(ReturnT.FAIL_CODE, I18nUtil.getString("system_lengh_limit")+"[4-20]" );
+        jobUser.setUsername(jobUser.getUsername().trim());
+        if (!(jobUser.getUsername().length() >= 4 && jobUser.getUsername().length() <= 20)) {
+            return new ReturnT<>(FAIL_CODE, I18nUtil.getString("system_length_limit") + "[4-20]");
         }
         // valid password
-        if (!StringUtils.hasText(xxlJobUser.getPassword())) {
-            return new ReturnT<String>(ReturnT.FAIL_CODE, I18nUtil.getString("system_please_input")+I18nUtil.getString("user_password") );
+        if (!StringUtils.hasText(jobUser.getPassword())) {
+            return new ReturnT<>(FAIL_CODE, I18nUtil.getString("system_please_input") + I18nUtil.getString("user_password"));
         }
-        xxlJobUser.setPassword(xxlJobUser.getPassword().trim());
-        if (!(xxlJobUser.getPassword().length()>=4 && xxlJobUser.getPassword().length()<=20)) {
-            return new ReturnT<String>(ReturnT.FAIL_CODE, I18nUtil.getString("system_lengh_limit")+"[4-20]" );
+        jobUser.setPassword(jobUser.getPassword().trim());
+        if (!(jobUser.getPassword().length() >= 4 && jobUser.getPassword().length() <= 20)) {
+            return new ReturnT<>(FAIL_CODE, I18nUtil.getString("system_length_limit") + "[4-20]");
         }
-        xxlJobUser.setPassword(bCryptPasswordEncoder.encode(xxlJobUser.getPassword()));
+        jobUser.setPassword(bCryptPasswordEncoder.encode(jobUser.getPassword()));
+
 
         // check repeat
-        XxlJobUser existUser = xxlJobUserMapper.loadByUserName(xxlJobUser.getUsername());
+        JobUser existUser = jobUserMapper.loadByUserName(jobUser.getUsername());
         if (existUser != null) {
-            return new ReturnT<String>(ReturnT.FAIL_CODE, I18nUtil.getString("user_username_repeat") );
+            return new ReturnT<>(FAIL_CODE, I18nUtil.getString("user_username_repeat"));
         }
 
         // write
-        xxlJobUserMapper.save(xxlJobUser);
+        jobUserMapper.save(jobUser);
         return ReturnT.SUCCESS;
     }
 
-    @RequestMapping("/update")
+    @PostMapping(value = "/update")
     @ApiOperation("更新用户信息")
-    public ReturnT<String> update(HttpServletRequest request, XxlJobUser xxlJobUser) {
-
-        // avoid opt login seft
-        XxlJobUser loginUser = (XxlJobUser) request.getAttribute(LoginService.LOGIN_IDENTITY_KEY);
-        if (loginUser.getUsername().equals(xxlJobUser.getUsername())) {
-            return new ReturnT<String>(ReturnT.FAIL.getCode(), I18nUtil.getString("user_update_loginuser_limit"));
-        }
-
-        // valid password
-        if (StringUtils.hasText(xxlJobUser.getPassword())) {
-            xxlJobUser.setPassword(xxlJobUser.getPassword().trim());
-            if (!(xxlJobUser.getPassword().length()>=4 && xxlJobUser.getPassword().length()<=20)) {
-                return new ReturnT<String>(ReturnT.FAIL_CODE, I18nUtil.getString("system_lengh_limit")+"[4-20]" );
+    public ReturnT<String> update(@RequestBody JobUser jobUser) {
+        if (StringUtils.hasText(jobUser.getPassword())) {
+            String pwd = jobUser.getPassword().trim();
+            if (StrUtil.isBlank(pwd)) {
+                return new ReturnT<>(FAIL_CODE, I18nUtil.getString("system_no_blank") + "密码");
             }
-            xxlJobUser.setPassword(bCryptPasswordEncoder.encode(xxlJobUser.getPassword()));
+
+            if (!(pwd.length() >= 4 && pwd.length() <= 20)) {
+                return new ReturnT<>(FAIL_CODE, I18nUtil.getString("system_length_limit") + "[4-20]");
+            }
+            jobUser.setPassword(bCryptPasswordEncoder.encode(pwd));
         } else {
-            xxlJobUser.setPassword(null);
+            return new ReturnT<>(FAIL_CODE, I18nUtil.getString("system_no_blank") + "密码");
         }
-
         // write
-        xxlJobUserMapper.update(xxlJobUser);
+        jobUserMapper.update(jobUser);
         return ReturnT.SUCCESS;
     }
 
-    @RequestMapping(value = "/remove",method = RequestMethod.POST)
+    @RequestMapping(value = "/remove", method = RequestMethod.POST)
     @ApiOperation("删除用户")
-    public ReturnT<String> remove(HttpServletRequest request, int id) {
-
-        // avoid opt login seft
-        XxlJobUser loginUser = (XxlJobUser) request.getAttribute(LoginService.LOGIN_IDENTITY_KEY);
-        if (loginUser.getId() == id) {
-            return new ReturnT<String>(ReturnT.FAIL.getCode(), I18nUtil.getString("user_update_loginuser_limit"));
-        }
-
-        xxlJobUserMapper.delete(id);
-        return ReturnT.SUCCESS;
+    public ReturnT<String> remove(int id) {
+        int result = jobUserMapper.delete(id);
+        return result != 1 ? ReturnT.FAIL : ReturnT.SUCCESS;
     }
 
-    @RequestMapping(value = "/updatePwd",method = RequestMethod.POST)
+    @PostMapping(value = "/updatePwd")
     @ApiOperation("修改密码")
-    public ReturnT<String> updatePwd(HttpServletRequest request, String password){
-
-        // valid password
-        if (password==null || password.trim().length()==0){
-            return new ReturnT<String>(ReturnT.FAIL.getCode(), "密码不可为空");
+    public ReturnT<String> updatePwd(@RequestBody JobUser jobUser) {
+        String password = jobUser.getPassword();
+        if (password == null || password.trim().length() == 0) {
+            return new ReturnT<>(ReturnT.FAIL.getCode(), "密码不可为空");
         }
         password = password.trim();
-        if (!(password.length()>=4 && password.length()<=20)) {
-            return new ReturnT<String>(ReturnT.FAIL_CODE, I18nUtil.getString("system_lengh_limit")+"[4-20]" );
+        if (!(password.length() >= 4 && password.length() <= 20)) {
+            return new ReturnT<>(FAIL_CODE, I18nUtil.getString("system_length_limit") + "[4-20]");
         }
-
-        // update pwd
-        XxlJobUser loginUser = (XxlJobUser) request.getAttribute(LoginService.LOGIN_IDENTITY_KEY);
-
         // do write
-        XxlJobUser existUser = xxlJobUserMapper.loadByUserName(loginUser.getUsername());
+        JobUser existUser = jobUserMapper.loadByUserName(jobUser.getUsername());
         existUser.setPassword(bCryptPasswordEncoder.encode(password));
-        xxlJobUserMapper.update(existUser);
-
+        jobUserMapper.update(existUser);
         return ReturnT.SUCCESS;
     }
 

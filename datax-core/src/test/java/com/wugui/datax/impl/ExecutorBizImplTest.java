@@ -5,13 +5,13 @@ import com.wugui.datatx.core.biz.model.LogResult;
 import com.wugui.datatx.core.biz.model.ReturnT;
 import com.wugui.datatx.core.biz.model.TriggerParam;
 import com.wugui.datatx.core.enums.ExecutorBlockStrategyEnum;
-import com.wugui.datatx.core.executor.XxlJobExecutor;
+import com.wugui.datatx.core.executor.JobExecutor;
 import com.wugui.datatx.core.glue.GlueTypeEnum;
-import com.xxl.rpc.remoting.invoker.call.CallType;
-import com.xxl.rpc.remoting.invoker.reference.XxlRpcReferenceBean;
-import com.xxl.rpc.remoting.invoker.route.LoadBalance;
-import com.xxl.rpc.remoting.net.impl.netty_http.client.NettyHttpClient;
-import com.xxl.rpc.serialize.impl.HessianSerializer;
+import com.wugui.datax.rpc.remoting.invoker.call.CallType;
+import com.wugui.datax.rpc.remoting.invoker.reference.XxlRpcReferenceBean;
+import com.wugui.datax.rpc.remoting.invoker.route.LoadBalance;
+import com.wugui.datax.rpc.remoting.net.impl.netty_http.client.NettyHttpClient;
+import com.wugui.datax.rpc.serialize.impl.HessianSerializer;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -22,24 +22,24 @@ import java.util.concurrent.TimeUnit;
 
 public class ExecutorBizImplTest {
 
-    public XxlJobExecutor xxlJobExecutor = null;
+    public JobExecutor jobExecutor = null;
     public ExecutorBiz executorBiz = null;
 
     @Before
     public void before() throws Exception {
 
         // init executor
-        xxlJobExecutor = new XxlJobExecutor();
-        xxlJobExecutor.setAdminAddresses(null);
-        xxlJobExecutor.setAppName("xxl-job-executor-sample");
-        xxlJobExecutor.setIp(null);
-        xxlJobExecutor.setPort(9999);
-        xxlJobExecutor.setAccessToken(null);
-        xxlJobExecutor.setLogPath("/data/applogs/xxl-job/jobhandler");
-        xxlJobExecutor.setLogRetentionDays(-1);
+        jobExecutor = new JobExecutor();
+        jobExecutor.setAdminAddresses(null);
+        jobExecutor.setAppName("datax-executor");
+        jobExecutor.setIp(null);
+        jobExecutor.setPort(9999);
+        jobExecutor.setAccessToken(null);
+        jobExecutor.setLogPath("/data/applogs/executor/jobhandler");
+        jobExecutor.setLogRetentionDays(-1);
 
         // start executor
-        xxlJobExecutor.start();
+        jobExecutor.start();
 
         TimeUnit.SECONDS.sleep(3);
 
@@ -62,8 +62,8 @@ public class ExecutorBizImplTest {
 
     @After
     public void after(){
-        if (xxlJobExecutor != null) {
-            xxlJobExecutor.destroy();
+        if (jobExecutor != null) {
+            jobExecutor.destroy();
         }
     }
 

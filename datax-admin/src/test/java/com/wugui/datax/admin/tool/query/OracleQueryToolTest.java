@@ -1,6 +1,6 @@
 package com.wugui.datax.admin.tool.query;
 
-import com.wugui.datax.admin.entity.JobJdbcDatasource;
+import com.wugui.datax.admin.entity.JobDatasource;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.Before;
 import org.junit.Test;
@@ -11,7 +11,7 @@ import java.util.List;
 public class OracleQueryToolTest {
 
     private BaseQueryTool queryTool;
-    private JobJdbcDatasource jdbcDatasource;
+    private JobDatasource jdbcDatasource;
 
     @Before
     public void before() {
@@ -20,7 +20,7 @@ public class OracleQueryToolTest {
     }
 
     private void genMysqlDemo() {
-        jdbcDatasource = new JobJdbcDatasource();
+        jdbcDatasource = new JobDatasource();
         jdbcDatasource.setDatasourceName("test");
         jdbcDatasource.setJdbcUsername("scott");
         jdbcDatasource.setJdbcPassword("tiger");
@@ -30,13 +30,13 @@ public class OracleQueryToolTest {
 
     @Test
     public void getTableNames() {
-        List<String> tableNames = queryTool.getTableNames();
+        List<String> tableNames = queryTool.getTableNames(null);
         tableNames.forEach(System.out::println);
     }
 
     @Test
     public void getColumnNames() {
-        List<String> columns = queryTool.getColumnNames("EMP");
+        List<String> columns = queryTool.getColumnNames("EMP",jdbcDatasource.getJdbcDriverClass());
         log.info(columns.toString());
     }
 }

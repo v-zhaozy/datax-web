@@ -1,6 +1,8 @@
 package com.wugui.datatx.core.biz.model;
 
 import java.io.Serializable;
+import java.util.Date;
+
 
 /**
  * Created by xuxueli on 16/7/22.
@@ -26,6 +28,21 @@ public class TriggerParam implements Serializable{
     private int broadcastTotal;
 
     private String jobJson;
+    private String processId;
+
+    private String replaceParam;
+    private String jvmParam;
+    private Date startTime;
+    private Date triggerTime;
+
+    private String partitionInfo;
+
+    private long startId;
+    private long endId;
+
+    private Integer incrementType;
+
+    private String replaceParamType;
 
 
     public int getJobId() {
@@ -132,6 +149,85 @@ public class TriggerParam implements Serializable{
         this.jobJson = jobJson;
     }
 
+    public String getProcessId() {
+        return processId;
+    }
+
+    public void setProcessId(String processId) {
+        this.processId = processId;
+    }
+
+    public String getReplaceParam() {
+        return replaceParam;
+    }
+
+    public void setReplaceParam(String replaceParam) {
+        this.replaceParam = replaceParam;
+    }
+
+    public String getJvmParam() {
+        return jvmParam;
+    }
+
+    public void setJvmParam(String jvmParam) {
+        this.jvmParam = jvmParam;
+    }
+
+    public Date getStartTime() {
+        return startTime;
+    }
+
+    public void setStartTime(Date startTime) {
+        this.startTime = startTime;
+    }
+
+    public Date getTriggerTime() {
+        return triggerTime;
+    }
+
+    public void setTriggerTime(Date triggerTime) {
+        this.triggerTime = triggerTime;
+    }
+
+    public String getPartitionInfo() {
+        return partitionInfo;
+    }
+
+    public void setPartitionInfo(String partitionInfo) {
+        this.partitionInfo = partitionInfo;
+    }
+
+    public long getStartId() {
+        return startId;
+    }
+
+    public void setStartId(long startId) {
+        this.startId = startId;
+    }
+
+    public long getEndId() {
+        return endId;
+    }
+
+    public void setEndId(long endId) {
+        this.endId = endId;
+    }
+
+    public Integer getIncrementType() {
+        return incrementType;
+    }
+
+    public void setIncrementType(Integer incrementType) {
+        this.incrementType = incrementType;
+    }
+
+    public String getReplaceParamType() {
+        return replaceParamType;
+    }
+
+    public void setReplaceParamType(String replaceParamType) {
+        this.replaceParamType = replaceParamType;
+    }
     @Override
     public String toString() {
         return "TriggerParam{" +
@@ -148,6 +244,16 @@ public class TriggerParam implements Serializable{
                 ", broadcastIndex=" + broadcastIndex +
                 ", broadcastTotal=" + broadcastTotal +
                 ", jobJson=" + jobJson +
+                ", processId=" + processId +
+                ", replaceParam=" + replaceParam +
+                ", jvmParam=" + jvmParam +
+                ", startTime=" + startTime +
+                ", triggerTime=" + triggerTime +
+                ", partitionInfo=" + partitionInfo +
+                ", replaceParamType=" + replaceParamType +
+                ", startId=" + startId +
+                ", endId=" + endId +
+                ", incrementType=" + incrementType +
                 '}';
     }
 

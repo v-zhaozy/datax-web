@@ -2,9 +2,10 @@ package com.wugui.datatx.core.biz.client;
 
 import com.wugui.datatx.core.biz.AdminBiz;
 import com.wugui.datatx.core.biz.model.HandleCallbackParam;
+import com.wugui.datatx.core.biz.model.HandleProcessCallbackParam;
 import com.wugui.datatx.core.biz.model.RegistryParam;
 import com.wugui.datatx.core.biz.model.ReturnT;
-import com.wugui.datatx.core.util.XxlJobRemotingUtil;
+import com.wugui.datatx.core.util.JobRemotingUtil;
 
 import java.util.List;
 
@@ -33,16 +34,21 @@ public class AdminBizClient implements AdminBiz {
 
     @Override
     public ReturnT<String> callback(List<HandleCallbackParam> callbackParamList) {
-        return XxlJobRemotingUtil.postBody(addressUrl+"api/callback", accessToken, callbackParamList, 3);
+        return JobRemotingUtil.postBody(addressUrl+"api/callback", accessToken, callbackParamList, 3);
+    }
+
+    @Override
+    public ReturnT<String> processCallback(List<HandleProcessCallbackParam> callbackParamList) {
+        return JobRemotingUtil.postBody(addressUrl + "api/processCallback", accessToken, callbackParamList, 3);
     }
 
     @Override
     public ReturnT<String> registry(RegistryParam registryParam) {
-        return XxlJobRemotingUtil.postBody(addressUrl + "api/registry", accessToken, registryParam, 3);
+        return JobRemotingUtil.postBody(addressUrl + "api/registry", accessToken, registryParam, 3);
     }
 
     @Override
     public ReturnT<String> registryRemove(RegistryParam registryParam) {
-        return XxlJobRemotingUtil.postBody(addressUrl + "api/registryRemove", accessToken, registryParam, 3);
+        return JobRemotingUtil.postBody(addressUrl + "api/registryRemove", accessToken, registryParam, 3);
     }
 }

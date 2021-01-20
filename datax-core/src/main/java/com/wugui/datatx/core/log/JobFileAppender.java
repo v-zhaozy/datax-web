@@ -17,7 +17,7 @@ public class JobFileAppender {
 	
 	// for JobThread (support log for child thread of job handler)
 	//public static ThreadLocal<String> contextHolder = new ThreadLocal<String>();
-	public static final InheritableThreadLocal<String> contextHolder = new InheritableThreadLocal<String>();
+	public static final InheritableThreadLocal<String> contextHolder = new InheritableThreadLocal<>();
 
 
 	/**
@@ -33,7 +33,7 @@ public class JobFileAppender {
 	 * 	---/2017-12-25/821.log
 	 *
 	 */
-	private static String logBasePath = "/data/applogs/xxl-job/jobhandler";
+	private static String logBasePath = "/data/applogs/executor/jobhandler";
 	private static String glueSrcPath = logBasePath.concat("/gluesource");
 	public static void initLogPath(String logPath){
 		// init
@@ -159,7 +159,7 @@ public class JobFileAppender {
 		try {
 			//reader = new LineNumberReader(new FileReader(logFile));
 			reader = new LineNumberReader(new InputStreamReader(new FileInputStream(logFile), "utf-8"));
-			String line = null;
+			String line;
 
 			while ((line = reader.readLine())!=null) {
 				toLineNum = reader.getLineNumber();		// [from, to], start as 1

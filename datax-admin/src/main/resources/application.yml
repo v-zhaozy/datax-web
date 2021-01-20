@@ -1,19 +1,39 @@
 server:
-  port: 8080
+  #port: 8080
+  port: ${server.port}
 spring:
   #数据源
   datasource:
-    username: root
-    password: root
-    url: jdbc:mysql://localhost:3306/datax_web?serverTimezone=Asia/Shanghai&useLegacyDatetimeCode=false&useSSL=false&nullNamePatternMatchesAll=true&useUnicode=true&characterEncoding=UTF-8
+    #    username: root
+    #password: root
+    #url: jdbc:mysql://localhost:3306/datax_web?serverTimezone=Asia/Shanghai&useLegacyDatetimeCode=false&useSSL=false&nullNamePatternMatchesAll=true&useUnicode=true&characterEncoding=UTF-8
+    password: ${DB_PASSWORD:password}
+    username: ${DB_USERNAME:username}
+    url: jdbc:mysql://${DB_HOST:127.0.0.1}:${DB_PORT:3306}/${DB_DATABASE:dataxweb}?serverTimezone=Asia/Shanghai&useLegacyDatetimeCode=false&useSSL=false&nullNamePatternMatchesAll=true&useUnicode=true&characterEncoding=UTF-8
     driver-class-name: com.mysql.jdbc.Driver
 
-  # xxl-job email
+
+    hikari:
+      ## 最小空闲连接数量
+      minimum-idle: 5
+      ## 空闲连接存活最大时间，默认600000（10分钟）
+      idle-timeout: 180000
+      ## 连接池最大连接数，默认是10
+      maximum-pool-size: 10
+      ## 数据库连接超时时间,默认30秒，即30000
+      connection-timeout: 30000
+      connection-test-query: SELECT 1
+      ##此属性控制池中连接的最长生命周期，值0表示无限生命周期，默认1800000即30分钟
+      max-lifetime: 1800000
+
+  # datax-web email
   mail:
     host: smtp.qq.com
     port: 25
-    username: xxx@qq.com
-    password: xxx
+    #username: xxx@qq.com
+    #password: xxx
+    username: ${mail.username}
+    password: ${mail.password}
     properties:
       mail:
         smtp:
@@ -23,6 +43,7 @@ spring:
             required: true
         socketFactory:
           class: javax.net.ssl.SSLSocketFactory
+
 
 management:
   health:
@@ -58,29 +79,34 @@ mybatis-plus:
     cache-enabled: false
     call-setters-on-nulls: true
     jdbc-type-for-null: 'null'
+    type-handlers-package: com.wugui.datax.admin.core.handler
 
-app:
-  #  数据抽取日志文件保存路径
-  etlLogDir: D:\temp\logs\datax-web\
-
-# 配置slq打印日志
+# 配置mybatis-plus打印sql日志
 logging:
+  #level:
+  #  com.wugui.datax.admin.mapper: info
+#path: ./data/applogs/admin
   level:
-    com.wugui.datax.admin.mapper: info
+    com.wugui.datax.admin.mapper: error
+    path: ${data.path}/applogs/admin
 
 
 
-#xxl-job, access token
-xxl:
+#datax-job, access token
+datax:
   job:
     accessToken:
     #i18n (default empty as chinese, "en" as english)
     i18n:
-    ## xxl-job, triggerpool max size
+    ## triggerpool max size
     triggerpool:
       fast:
         max: 200
       slow:
         max: 100
-      ### xxl-job, log retention days
+      ### log retention days
     logretentiondays: 30
+
+datasource:
+  aes:
+    key: AD42F6697B035B75

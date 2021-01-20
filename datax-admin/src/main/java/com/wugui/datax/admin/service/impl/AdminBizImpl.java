@@ -1,20 +1,21 @@
 package com.wugui.datax.admin.service.impl;
 
 import com.wugui.datatx.core.biz.AdminBiz;
-
 import com.wugui.datatx.core.biz.model.HandleCallbackParam;
+import com.wugui.datatx.core.biz.model.HandleProcessCallbackParam;
 import com.wugui.datatx.core.biz.model.RegistryParam;
 import com.wugui.datatx.core.biz.model.ReturnT;
+import com.wugui.datatx.core.enums.IncrementTypeEnum;
 import com.wugui.datatx.core.handler.IJobHandler;
+import com.wugui.datax.admin.core.kill.KillJob;
 import com.wugui.datax.admin.core.thread.JobTriggerPoolHelper;
 import com.wugui.datax.admin.core.trigger.TriggerTypeEnum;
 import com.wugui.datax.admin.core.util.I18nUtil;
-import com.wugui.datax.admin.entity.XxlJobInfo;
-import com.wugui.datax.admin.entity.XxlJobLog;
-import com.wugui.datax.admin.mapper.XxlJobGroupMapper;
-import com.wugui.datax.admin.mapper.XxlJobInfoMapper;
-import com.wugui.datax.admin.mapper.XxlJobLogMapper;
-import com.wugui.datax.admin.mapper.XxlJobRegistryMapper;
+import com.wugui.datax.admin.entity.JobInfo;
+import com.wugui.datax.admin.entity.JobLog;
+import com.wugui.datax.admin.mapper.JobInfoMapper;
+import com.wugui.datax.admin.mapper.JobLogMapper;
+import com.wugui.datax.admin.mapper.JobRegistryMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -33,29 +34,42 @@ public class AdminBizImpl implements AdminBiz {
     private static Logger logger = LoggerFactory.getLogger(AdminBizImpl.class);
 
     @Resource
-    public XxlJobLogMapper xxlJobLogMapper;
+    public JobLogMapper jobLogMapper;
     @Resource
-    private XxlJobInfoMapper xxlJobInfoMapper;
+    private JobInfoMapper jobInfoMapper;
     @Resource
-    private XxlJobRegistryMapper xxlJobRegistryMapper;
-    @Resource
-    private XxlJobGroupMapper xxlJobGroupMapper;
-
+    private JobRegistryMapper jobRegistryMapper;
 
     @Override
     public ReturnT<String> callback(List<HandleCallbackParam> callbackParamList) {
-        for (HandleCallbackParam handleCallbackParam: callbackParamList) {
+        for (HandleCallbackParam handleCallbackParam : callbackParamList) {
             ReturnT<String> callbackResult = callback(handleCallbackParam);
             logger.debug(">>>>>>>>> JobApiController.callback {}, handleCallbackParam={}, callbackResult={}",
-                    (callbackResult.getCode()== IJobHandler.SUCCESS.getCode()?"success":"fail"), handleCallbackParam, callbackResult);
+                    (callbackResult.getCode() == IJobHandler.SUCCESS.getCode() ? "success" : "fail"), handleCallbackParam, callbackResult);
         }
 
         return ReturnT.SUCCESS;
     }
 
+    @Override
+    public ReturnT<String> processCallback(List<HandleProcessCallbackParam> callbackParamList) {
+        for (HandleProcessCallbackParam handleProcessCallbackParam : callbackParamList) {
+            ReturnT<String> callbackResult = processCallback(handleProcessCallbackParam);
+            logger.debug(">>>>>>>>> JobApiController.processCallback {}, handleCallbackParam={}, callbackResult={}",
+                    (callbackResult.getCode() == IJobHandler.SUCCESS.getCode() ? "success" : "fail"), handleProcessCallbackParam, callbackResult);
+        }
+        return ReturnT.SUCCESS;
+    }
+
+    private ReturnT<String> processCallback(HandleProcessCallbackParam handleProcessCallbackParam) {
+        int result = jobLogMapper.updateProcessId(handleProcessCallbackParam.getLogId(), handleProcessCallbackParam.getProcessId());
+        return result > 0 ? ReturnT.FAIL : ReturnT.SUCCESS;
+    }
+
+
     private ReturnT<String> callback(HandleCallbackParam handleCallbackParam) {
         // valid log item
-        XxlJobLog log = xxlJobLogMapper.load(handleCallbackParam.getLogId());
+        JobLog log = jobLogMapper.load(handleCallbackParam.getLogId());
         if (log == null) {
             return new ReturnT<String>(ReturnT.FAIL_CODE, "log item not found.");
         }
@@ -65,14 +79,20 @@ public class AdminBizImpl implements AdminBiz {
 
         // trigger success, to trigger child job
         String callbackMsg = null;
-        if (IJobHandler.SUCCESS.getCode() == handleCallbackParam.getExecuteResult().getCode()) {
-            XxlJobInfo xxlJobInfo = xxlJobInfoMapper.loadById(log.getJobId());
-            if (xxlJobInfo!=null && xxlJobInfo.getChildJobId()!=null && xxlJobInfo.getChildJobId().trim().length()>0) {
-                callbackMsg = "<br><br><span style=\"color:#00c0ef;\" > >>>>>>>>>>>"+ I18nUtil.getString("jobconf_trigger_child_run") +"<<<<<<<<<<< </span><br>";
+        int resultCode = handleCallbackParam.getExecuteResult().getCode();
 
-                String[] childJobIds = xxlJobInfo.getChildJobId().split(",");
+        if (IJobHandler.SUCCESS.getCode() == resultCode) {
+
+            JobInfo jobInfo = jobInfoMapper.loadById(log.getJobId());
+
+            updateIncrementParam(log, jobInfo.getIncrementType());
+
+            if (jobInfo != null && jobInfo.getChildJobId() != null && jobInfo.getChildJobId().trim().length() > 0) {
+                callbackMsg = "<br><br><span style=\"color:#00c0ef;\" > >>>>>>>>>>>" + I18nUtil.getString("jobconf_trigger_child_run") + "<<<<<<<<<<< </span><br>";
+
+                String[] childJobIds = jobInfo.getChildJobId().split(",");
                 for (int i = 0; i < childJobIds.length; i++) {
-                    int childJobId = (childJobIds[i]!=null && childJobIds[i].trim().length()>0 && isNumeric(childJobIds[i]))? Integer.valueOf(childJobIds[i]):-1;
+                    int childJobId = (childJobIds[i] != null && childJobIds[i].trim().length() > 0 && isNumeric(childJobIds[i])) ? Integer.valueOf(childJobIds[i]) : -1;
                     if (childJobId > 0) {
 
                         JobTriggerPoolHelper.trigger(childJobId, TriggerTypeEnum.PARENT, -1, null, null);
@@ -80,14 +100,14 @@ public class AdminBizImpl implements AdminBiz {
 
                         // add msg
                         callbackMsg += MessageFormat.format(I18nUtil.getString("jobconf_callback_child_msg1"),
-                                (i+1),
+                                (i + 1),
                                 childJobIds.length,
                                 childJobIds[i],
-                                (triggerChildResult.getCode()==ReturnT.SUCCESS_CODE?I18nUtil.getString("system_success"):I18nUtil.getString("system_fail")),
+                                (triggerChildResult.getCode() == ReturnT.SUCCESS_CODE ? I18nUtil.getString("system_success") : I18nUtil.getString("system_fail")),
                                 triggerChildResult.getMsg());
                     } else {
                         callbackMsg += MessageFormat.format(I18nUtil.getString("jobconf_callback_child_msg2"),
-                                (i+1),
+                                (i + 1),
                                 childJobIds.length,
                                 childJobIds[i]);
                     }
@@ -96,9 +116,14 @@ public class AdminBizImpl implements AdminBiz {
             }
         }
 
+        //kill execution timeout DataX process
+        if (!StringUtils.isEmpty(log.getProcessId()) && IJobHandler.FAIL_TIMEOUT.getCode() == resultCode) {
+            KillJob.trigger(log.getId(), log.getTriggerTime(), log.getExecutorAddress(), log.getProcessId());
+        }
+
         // handle msg
         StringBuffer handleMsg = new StringBuffer();
-        if (log.getHandleMsg()!=null) {
+        if (log.getHandleMsg() != null) {
             handleMsg.append(log.getHandleMsg()).append("<br>");
         }
         if (handleCallbackParam.getExecuteResult().getMsg() != null) {
@@ -108,18 +133,32 @@ public class AdminBizImpl implements AdminBiz {
             handleMsg.append(callbackMsg);
         }
 
+        if (handleMsg.length() > 15000) {
+            handleMsg = new StringBuffer(handleMsg.substring(0, 15000));  // text最大64kb 避免长度过长
+        }
+
         // success, save log
         log.setHandleTime(new Date());
-        log.setHandleCode(handleCallbackParam.getExecuteResult().getCode());
+        log.setHandleCode(resultCode);
         log.setHandleMsg(handleMsg.toString());
-        xxlJobLogMapper.updateHandleInfo(log);
+
+        jobLogMapper.updateHandleInfo(log);
+        jobInfoMapper.updateLastHandleCode(log.getJobId(), resultCode);
 
         return ReturnT.SUCCESS;
     }
 
-    private boolean isNumeric(String str){
+    private void updateIncrementParam(JobLog log, Integer incrementType) {
+        if (IncrementTypeEnum.ID.getCode() == incrementType) {
+            jobInfoMapper.incrementIdUpdate(log.getJobId(),log.getMaxId());
+        } else if (IncrementTypeEnum.TIME.getCode() == incrementType) {
+            jobInfoMapper.incrementTimeUpdate(log.getJobId(), log.getTriggerTime());
+        }
+    }
+
+    private boolean isNumeric(String str) {
         try {
-            int result = Integer.valueOf(str);
+            Integer.valueOf(str);
             return true;
         } catch (NumberFormatException e) {
             return false;
@@ -136,9 +175,11 @@ public class AdminBizImpl implements AdminBiz {
             return new ReturnT<String>(ReturnT.FAIL_CODE, "Illegal Argument.");
         }
 
-        int ret = xxlJobRegistryMapper.registryUpdate(registryParam.getRegistryGroup(), registryParam.getRegistryKey(), registryParam.getRegistryValue(), new Date());
+        int ret = jobRegistryMapper.registryUpdate(registryParam.getRegistryGroup(), registryParam.getRegistryKey(),
+                registryParam.getRegistryValue(), registryParam.getCpuUsage(), registryParam.getMemoryUsage(), registryParam.getLoadAverage(), new Date());
         if (ret < 1) {
-            xxlJobRegistryMapper.registrySave(registryParam.getRegistryGroup(), registryParam.getRegistryKey(), registryParam.getRegistryValue(), new Date());
+            jobRegistryMapper.registrySave(registryParam.getRegistryGroup(), registryParam.getRegistryKey(),
+                    registryParam.getRegistryValue(), registryParam.getCpuUsage(), registryParam.getMemoryUsage(), registryParam.getLoadAverage(), new Date());
 
             // fresh
             freshGroupRegistryInfo(registryParam);
@@ -156,7 +197,7 @@ public class AdminBizImpl implements AdminBiz {
             return new ReturnT<String>(ReturnT.FAIL_CODE, "Illegal Argument.");
         }
 
-        int ret = xxlJobRegistryMapper.registryDelete(registryParam.getRegistryGroup(), registryParam.getRegistryKey(), registryParam.getRegistryValue());
+        int ret = jobRegistryMapper.registryDelete(registryParam.getRegistryGroup(), registryParam.getRegistryKey(), registryParam.getRegistryValue());
         if (ret > 0) {
 
             // fresh
@@ -165,7 +206,7 @@ public class AdminBizImpl implements AdminBiz {
         return ReturnT.SUCCESS;
     }
 
-    private void freshGroupRegistryInfo(RegistryParam registryParam){
+    private void freshGroupRegistryInfo(RegistryParam registryParam) {
         // Under consideration, prevent affecting core tables
     }
 

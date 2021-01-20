@@ -7,3 +7,14 @@
 /datax-admin/target/
 /.idea/
 /datax-admin/.idea/
+/datax-registry/datax-registry.iml
+/datax-registry/target/
+/datax-rpc/datax-rpc.iml
+/datax-rpc/target/
+/datax-all.iml
+/logs/
+*-dev*
+/data/
+/build/
+/packages/
+/datax-assembly/target/

@@ -1,6 +1,7 @@
 package com.wugui.datatx.core.handler.impl;
 
 import com.wugui.datatx.core.biz.model.ReturnT;
+import com.wugui.datatx.core.biz.model.TriggerParam;
 import com.wugui.datatx.core.glue.GlueTypeEnum;
 import com.wugui.datatx.core.handler.IJobHandler;
 import com.wugui.datatx.core.log.JobFileAppender;
@@ -32,7 +33,7 @@ public class ScriptJobHandler extends IJobHandler {
             File[] glueSrcFileList = glueSrcPath.listFiles();
             if (glueSrcFileList!=null && glueSrcFileList.length>0) {
                 for (File glueSrcFileItem : glueSrcFileList) {
-                    if (glueSrcFileItem.getName().startsWith(String.valueOf(jobId)+"_")) {
+                    if (glueSrcFileItem.getName().startsWith(jobId +"_")) {
                         glueSrcFileItem.delete();
                     }
                 }
@@ -45,11 +46,11 @@ public class ScriptJobHandler extends IJobHandler {
         return glueUpdatetime;
     }
 
-    @Override
-    public ReturnT<String> execute(String param) throws Exception {
 
+    @Override
+    public ReturnT<String> execute(TriggerParam tgParam) throws Exception {
         if (!glueType.isScript()) {
-            return new ReturnT<String>(IJobHandler.FAIL.getCode(), "glueType["+ glueType +"] invalid.");
+            return new ReturnT<>(IJobHandler.FAIL.getCode(), "glueType[" + glueType + "] invalid.");
         }
 
         // cmd
@@ -73,25 +74,19 @@ public class ScriptJobHandler extends IJobHandler {
         // script params：0=param、1=分片序号、2=分片总数
         ShardingUtil.ShardingVO shardingVO = ShardingUtil.getShardingVo();
         String[] scriptParams = new String[3];
-        scriptParams[0] = param;
+        scriptParams[0] = tgParam.getExecutorParams();
         scriptParams[1] = String.valueOf(shardingVO.getIndex());
         scriptParams[2] = String.valueOf(shardingVO.getTotal());
 
         // invoke
         JobLogger.log("----------- script file:"+ scriptFileName +" -----------");
-        int exitValue = ScriptUtil.execToFile(cmd, scriptFileName, logFileName, scriptParams);
+        int exitValue = ScriptUtil.execToFile(cmd, scriptFileName, logFileName,tgParam.getLogId(),tgParam.getLogDateTime(), scriptParams);
 
         if (exitValue == 0) {
             return IJobHandler.SUCCESS;
         } else {
-            return new ReturnT<String>(IJobHandler.FAIL.getCode(), "script exit value("+exitValue+") is failed");
+            return new ReturnT<>(IJobHandler.FAIL.getCode(), "script exit value(" + exitValue + ") is failed");
         }
-
-    }
-
-    @Override
-    public ReturnT<String> executeDataX(String jobJson) throws Exception {
-        return null;
     }
 
 }

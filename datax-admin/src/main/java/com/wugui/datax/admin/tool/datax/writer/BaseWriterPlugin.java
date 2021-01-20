@@ -1,15 +1,22 @@
 package com.wugui.datax.admin.tool.datax.writer;
 
-import com.wugui.datax.admin.entity.JobJdbcDatasource;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
+import com.wugui.datatx.core.util.Constants;
+import com.wugui.datax.admin.entity.JobDatasource;
 import com.wugui.datax.admin.tool.datax.BaseDataxPlugin;
-import com.wugui.datax.admin.tool.pojo.DataxPluginPojo;
+import com.wugui.datax.admin.tool.pojo.DataxHbasePojo;
+import com.wugui.datax.admin.tool.pojo.DataxHivePojo;
+import com.wugui.datax.admin.tool.pojo.DataxMongoDBPojo;
+import com.wugui.datax.admin.tool.pojo.DataxRdbmsPojo;
+import org.apache.commons.lang3.StringUtils;
 
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
- * TODO
+ * datax writer base
  *
  * @author zhouhongfa@gz-yibo.com
  * @ClassName BaseWriterPlugin
@@ -18,31 +25,53 @@ import java.util.Map;
  */
 public abstract class BaseWriterPlugin extends BaseDataxPlugin {
     @Override
-    public Map<String, Object> build(DataxPluginPojo dataxPluginPojo) {
+    public Map<String, Object> build(DataxRdbmsPojo plugin) {
         Map<String, Object> writerObj = Maps.newLinkedHashMap();
         writerObj.put("name", getName());
 
         Map<String, Object> parameterObj = Maps.newLinkedHashMap();
 //        parameterObj.put("writeMode", "insert");
-
-        JobJdbcDatasource jobJdbcDatasource = dataxPluginPojo.getJdbcDatasource();
-        parameterObj.put("username", jobJdbcDatasource.getJdbcUsername());
-        parameterObj.put("password", jobJdbcDatasource.getJdbcPassword());
-
-        parameterObj.put("column", dataxPluginPojo.getColumns());
-
-        // preSql
-        parameterObj.put("preSql", ImmutableList.of(dataxPluginPojo.getPreSql()));
+        JobDatasource jobDatasource = plugin.getJobDatasource();
+        parameterObj.put("username", jobDatasource.getJdbcUsername());
+        parameterObj.put("password", jobDatasource.getJdbcPassword());
+        parameterObj.put("column", plugin.getRdbmsColumns());
+        parameterObj.put("preSql", splitSql(plugin.getPreSql()));
+        parameterObj.put("postSql", splitSql(plugin.getPostSql()));
 
         Map<String, Object> connectionObj = Maps.newLinkedHashMap();
-        connectionObj.put("table", dataxPluginPojo.getTables());
-
-        connectionObj.put("jdbcUrl", jobJdbcDatasource.getJdbcUrl());
+        connectionObj.put("table", plugin.getTables());
+        connectionObj.put("jdbcUrl", jobDatasource.getJdbcUrl());
 
         parameterObj.put("connection", ImmutableList.of(connectionObj));
-
         writerObj.put("parameter", parameterObj);
 
         return writerObj;
+    }
+
+    private String[] splitSql(String sql) {
+        String[] sqlArr = null;
+        if (StringUtils.isNotBlank(sql)) {
+            Pattern p = Pattern.compile("\r\n|\r|\n|\n\r");
+            Matcher m = p.matcher(sql);
+            String sqlStr = m.replaceAll(Constants.STRING_BLANK);
+            sqlArr = sqlStr.split(Constants.SPLIT_COLON);
+        }
+        return sqlArr;
+    }
+
+    @Override
+    public Map<String, Object> buildHive(DataxHivePojo dataxHivePojo) {
+        return null;
+    }
+
+
+    @Override
+    public Map<String, Object> buildHbase(DataxHbasePojo dataxHbasePojo) {
+        return null;
+    }
+
+    @Override
+    public Map<String, Object> buildMongoDB(DataxMongoDBPojo plugin) {
+        return null;
     }
 }

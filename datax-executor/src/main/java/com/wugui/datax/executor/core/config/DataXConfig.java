@@ -1,6 +1,8 @@
 package com.wugui.datax.executor.core.config;
 
-import com.wugui.datatx.core.executor.impl.XxlJobSpringExecutor;
+import com.wugui.datatx.core.executor.impl.JobSpringExecutor;
+import com.wugui.datax.executor.util.SystemUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -16,41 +18,47 @@ import org.springframework.context.annotation.Configuration;
 public class DataXConfig {
     private Logger logger = LoggerFactory.getLogger(DataXConfig.class);
 
-    @Value("${xxl.job.admin.addresses}")
+    private static final String DEFAULT_LOG_PATH = "log/executor/jobhandler";
+
+    @Value("${datax.job.admin.addresses}")
     private String adminAddresses;
 
-    @Value("${xxl.job.executor.appname}")
+    @Value("${datax.job.executor.appname}")
     private String appName;
 
-    @Value("${xxl.job.executor.ip}")
+    @Value("${datax.job.executor.ip}")
     private String ip;
 
-    @Value("${xxl.job.executor.port}")
+    @Value("${datax.job.executor.port}")
     private int port;
 
-    @Value("${xxl.job.accessToken}")
+    @Value("${datax.job.accessToken}")
     private String accessToken;
 
-    @Value("${xxl.job.executor.logpath}")
+    @Value("${datax.job.executor.logpath}")
     private String logPath;
 
-    @Value("${xxl.job.executor.logretentiondays}")
+    @Value("${datax.job.executor.logretentiondays}")
     private int logRetentionDays;
 
 
     @Bean
-    public XxlJobSpringExecutor xxlJobExecutor() {
-        logger.info(">>>>>>>>>>> xxl-job config init.");
-        XxlJobSpringExecutor xxlJobSpringExecutor = new XxlJobSpringExecutor();
-        xxlJobSpringExecutor.setAdminAddresses(adminAddresses);
-        xxlJobSpringExecutor.setAppName(appName);
-        xxlJobSpringExecutor.setIp(ip);
-        xxlJobSpringExecutor.setPort(port);
-        xxlJobSpringExecutor.setAccessToken(accessToken);
-        xxlJobSpringExecutor.setLogPath(logPath);
-        xxlJobSpringExecutor.setLogRetentionDays(logRetentionDays);
+    public JobSpringExecutor JobExecutor() {
+        logger.info(">>>>>>>>>>> datax-web config init.");
+        JobSpringExecutor jobSpringExecutor = new JobSpringExecutor();
+        jobSpringExecutor.setAdminAddresses(adminAddresses);
+        jobSpringExecutor.setAppName(appName);
+        jobSpringExecutor.setIp(ip);
+        jobSpringExecutor.setPort(port);
+        jobSpringExecutor.setAccessToken(accessToken);
+        String dataXHomePath = SystemUtils.getDataXHomePath();
+        if (StringUtils.isEmpty(logPath)) {
+            logPath = dataXHomePath + DEFAULT_LOG_PATH;
+        }
+        jobSpringExecutor.setLogPath(logPath);
+        jobSpringExecutor.setLogRetentionDays(logRetentionDays);
 
-        return xxlJobSpringExecutor;
+        return jobSpringExecutor;
     }
 
     /**

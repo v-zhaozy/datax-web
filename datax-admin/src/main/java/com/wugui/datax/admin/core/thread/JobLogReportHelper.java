@@ -1,7 +1,7 @@
 package com.wugui.datax.admin.core.thread;
 
-import com.wugui.datax.admin.core.conf.XxlJobAdminConfig;
-import com.wugui.datax.admin.entity.XxlJobLogReport;
+import com.wugui.datax.admin.core.conf.JobAdminConfig;
+import com.wugui.datax.admin.entity.JobLogReport;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -62,13 +62,13 @@ public class JobLogReportHelper {
                             Date todayTo = itemDay.getTime();
 
                             // refresh log-report every minute
-                            XxlJobLogReport xxlJobLogReport = new XxlJobLogReport();
+                            JobLogReport xxlJobLogReport = new JobLogReport();
                             xxlJobLogReport.setTriggerDay(todayFrom);
                             xxlJobLogReport.setRunningCount(0);
                             xxlJobLogReport.setSucCount(0);
                             xxlJobLogReport.setFailCount(0);
 
-                            Map<String, Object> triggerCountMap = XxlJobAdminConfig.getAdminConfig().getXxlJobLogMapper().findLogReport(todayFrom, todayTo);
+                            Map<String, Object> triggerCountMap = JobAdminConfig.getAdminConfig().getJobLogMapper().findLogReport(todayFrom, todayTo);
                             if (triggerCountMap!=null && triggerCountMap.size()>0) {
                                 int triggerDayCount = triggerCountMap.containsKey("triggerDayCount")? Integer.valueOf(String.valueOf(triggerCountMap.get("triggerDayCount"))):0;
                                 int triggerDayCountRunning = triggerCountMap.containsKey("triggerDayCountRunning")? Integer.valueOf(String.valueOf(triggerCountMap.get("triggerDayCountRunning"))):0;
@@ -81,25 +81,25 @@ public class JobLogReportHelper {
                             }
 
                             // do refresh
-                            int ret = XxlJobAdminConfig.getAdminConfig().getXxlJobLogReportMapper().update(xxlJobLogReport);
+                            int ret = JobAdminConfig.getAdminConfig().getJobLogReportMapper().update(xxlJobLogReport);
                             if (ret < 1) {
-                                XxlJobAdminConfig.getAdminConfig().getXxlJobLogReportMapper().save(xxlJobLogReport);
+                                JobAdminConfig.getAdminConfig().getJobLogReportMapper().save(xxlJobLogReport);
                             }
                         }
 
                     } catch (Exception e) {
                         if (!toStop) {
-                            logger.error(">>>>>>>>>>> xxl-job, job log report thread error:{}", e);
+                            logger.error(">>>>>>>>>>> datax-web, job log report thread error:{}", e);
                         }
                     }
 
                     // 2、log-clean: switch open & once each day
-                    if (XxlJobAdminConfig.getAdminConfig().getLogretentiondays()>0
+                    if (JobAdminConfig.getAdminConfig().getLogretentiondays()>0
                             && System.currentTimeMillis() - lastCleanLogTime > 24*60*60*1000) {
 
                         // expire-time
                         Calendar expiredDay = Calendar.getInstance();
-                        expiredDay.add(Calendar.DAY_OF_MONTH, -1 * XxlJobAdminConfig.getAdminConfig().getLogretentiondays());
+                        expiredDay.add(Calendar.DAY_OF_MONTH, -1 * JobAdminConfig.getAdminConfig().getLogretentiondays());
                         expiredDay.set(Calendar.HOUR_OF_DAY, 0);
                         expiredDay.set(Calendar.MINUTE, 0);
                         expiredDay.set(Calendar.SECOND, 0);
@@ -109,9 +109,9 @@ public class JobLogReportHelper {
                         // clean expired log
                         List<Long> logIds = null;
                         do {
-                            logIds = XxlJobAdminConfig.getAdminConfig().getXxlJobLogMapper().findClearLogIds(0, 0, clearBeforeTime, 0, 1000);
+                            logIds = JobAdminConfig.getAdminConfig().getJobLogMapper().findClearLogIds(0, 0, clearBeforeTime, 0, 1000);
                             if (logIds!=null && logIds.size()>0) {
-                                XxlJobAdminConfig.getAdminConfig().getXxlJobLogMapper().clearLog(logIds);
+                                JobAdminConfig.getAdminConfig().getJobLogMapper().clearLog(logIds);
                             }
                         } while (logIds!=null && logIds.size()>0);
 
@@ -129,12 +129,12 @@ public class JobLogReportHelper {
 
                 }
 
-                logger.info(">>>>>>>>>>> xxl-job, job log report thread stop");
+                logger.info(">>>>>>>>>>> datax-web, job log report thread stop");
 
             }
         });
         logrThread.setDaemon(true);
-        logrThread.setName("xxl-job, admin JobLogReportHelper");
+        logrThread.setName("datax-web, admin JobLogReportHelper");
         logrThread.start();
     }
 

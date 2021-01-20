@@ -1,7 +1,7 @@
 package com.wugui.datax.admin.tool.meta;
 
 /**
- * TODO
+ * meta信息interface
  *
  * @author zhouhongfa@gz-yibo.com
  * @ClassName BaseDatabaseMeta
@@ -37,6 +37,26 @@ public abstract class BaseDatabaseMeta implements DatabaseInterface {
 
     @Override
     public String getSQLQueryColumns(String... args) {
+        return null;
+    }
+
+    @Override
+    public String getMaxId(String tableName, String primaryKey) {
+        return String.format("select max(%s) from %s",primaryKey,tableName);
+    }
+
+    @Override
+    public String getSQLQueryTableSchema(String... args) {
+        return null;
+    }
+
+    @Override
+    public String getSQLQueryTables() {
+        return null;
+    }
+
+    @Override
+    public String getSQLQueryTables(String... tableSchema) {
         return null;
     }
 }

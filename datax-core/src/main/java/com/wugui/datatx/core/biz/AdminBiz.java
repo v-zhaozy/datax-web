@@ -1,6 +1,7 @@
 package com.wugui.datatx.core.biz;
 
 import com.wugui.datatx.core.biz.model.HandleCallbackParam;
+import com.wugui.datatx.core.biz.model.HandleProcessCallbackParam;
 import com.wugui.datatx.core.biz.model.RegistryParam;
 import com.wugui.datatx.core.biz.model.ReturnT;
 
@@ -20,8 +21,15 @@ public interface AdminBiz {
      * @param callbackParamList
      * @return
      */
-    public ReturnT<String> callback(List<HandleCallbackParam> callbackParamList);
+    ReturnT<String> callback(List<HandleCallbackParam> callbackParamList);
 
+    /**
+     * processCallback
+     *
+     * @param processCallbackParamList
+     * @return
+     */
+    ReturnT<String> processCallback(List<HandleProcessCallbackParam> processCallbackParamList);
 
     // ---------------------- registry ----------------------
 
@@ -31,7 +39,7 @@ public interface AdminBiz {
      * @param registryParam
      * @return
      */
-    public ReturnT<String> registry(RegistryParam registryParam);
+    ReturnT<String> registry(RegistryParam registryParam);
 
     /**
      * registry remove
@@ -39,6 +47,6 @@ public interface AdminBiz {
      * @param registryParam
      * @return
      */
-    public ReturnT<String> registryRemove(RegistryParam registryParam);
+    ReturnT<String> registryRemove(RegistryParam registryParam);
 
 }

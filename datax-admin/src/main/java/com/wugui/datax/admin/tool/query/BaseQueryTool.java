@@ -1,22 +1,28 @@
 package com.wugui.datax.admin.tool.query;
 
 import cn.hutool.core.util.StrUtil;
-import com.alibaba.druid.util.JdbcUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import com.wugui.datatx.core.util.Constants;
+import com.wugui.datax.admin.core.util.LocalCacheUtil;
+import com.wugui.datax.admin.entity.JobDatasource;
 import com.wugui.datax.admin.tool.database.ColumnInfo;
 import com.wugui.datax.admin.tool.database.DasColumn;
 import com.wugui.datax.admin.tool.database.TableInfo;
 import com.wugui.datax.admin.tool.meta.DatabaseInterface;
 import com.wugui.datax.admin.tool.meta.DatabaseMetaFactory;
-import com.wugui.datax.admin.entity.JobJdbcDatasource;
+import com.wugui.datax.admin.util.AESUtil;
+import com.wugui.datax.admin.util.JdbcConstants;
+import com.wugui.datax.admin.util.JdbcUtils;
 import com.zaxxer.hikari.HikariDataSource;
+import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.sql.DataSource;
 import java.sql.*;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 
@@ -30,58 +36,60 @@ import java.util.Map;
  */
 public abstract class BaseQueryTool implements QueryToolInterface {
 
-    protected final Logger logger = LoggerFactory.getLogger(this.getClass());
+    protected static final Logger logger = LoggerFactory.getLogger(BaseQueryTool.class);
     /**
      * 用于获取查询语句
      */
-    protected DatabaseInterface sqlBuilder;
+    private DatabaseInterface sqlBuilder;
 
-    protected DataSource datasource;
+    private DataSource datasource;
 
-    protected Connection connection;
-
-    /**
-     * 当前数据库类型
-     */
-    protected String currentDbType;
-
+    private Connection connection;
     /**
      * 当前数据库名
      */
-    protected String currentSchema;
-
-    protected JobJdbcDatasource jobJdbcDatasource;
-
-
-    BaseQueryTool() {
-        throw new UnsupportedOperationException();
-    }
-
+    private String currentSchema;
+    private String currentDatabase;
 
     /**
      * 构造方法
      *
-     * @param jobJdbcDatasource
+     * @param jobDatasource
      */
-    BaseQueryTool(JobJdbcDatasource jobJdbcDatasource) throws SQLException {
+    BaseQueryTool(JobDatasource jobDatasource) throws SQLException {
+        if (LocalCacheUtil.get(jobDatasource.getDatasourceName()) == null) {
+            getDataSource(jobDatasource);
+        } else {
+            this.connection = (Connection) LocalCacheUtil.get(jobDatasource.getDatasourceName());
+            if (!this.connection.isValid(500)) {
+                LocalCacheUtil.remove(jobDatasource.getDatasourceName());
+                getDataSource(jobDatasource);
+            }
+        }
+        sqlBuilder = DatabaseMetaFactory.getByDbType(jobDatasource.getDatasource());
+        currentSchema = getSchema(jobDatasource.getJdbcUsername());
+        currentDatabase = jobDatasource.getDatasource();
+        LocalCacheUtil.set(jobDatasource.getDatasourceName(), this.connection, 4 * 60 * 60 * 1000);
+    }
+
+    private void getDataSource(JobDatasource jobDatasource) throws SQLException {
+        String userName = AESUtil.decrypt(jobDatasource.getJdbcUsername());
+
         //这里默认使用 hikari 数据源
         HikariDataSource dataSource = new HikariDataSource();
-        dataSource.setUsername(jobJdbcDatasource.getJdbcUsername());
-        dataSource.setPassword(jobJdbcDatasource.getJdbcPassword());
-        dataSource.setJdbcUrl(jobJdbcDatasource.getJdbcUrl());
-        dataSource.setDriverClassName(jobJdbcDatasource.getJdbcDriverClass());
-        //设为只读
-        dataSource.setReadOnly(true);
-        this.jobJdbcDatasource = jobJdbcDatasource;
+        dataSource.setUsername(userName);
+        dataSource.setPassword(AESUtil.decrypt(jobDatasource.getJdbcPassword()));
+        dataSource.setJdbcUrl(jobDatasource.getJdbcUrl());
+        dataSource.setDriverClassName(jobDatasource.getJdbcDriverClass());
+        dataSource.setMaximumPoolSize(1);
+        dataSource.setMinimumIdle(0);
+        dataSource.setConnectionTimeout(30000);
         this.datasource = dataSource;
         this.connection = this.datasource.getConnection();
-        currentDbType = JdbcUtils.getDbType(jobJdbcDatasource.getJdbcUrl(), jobJdbcDatasource.getJdbcDriverClass());
-        sqlBuilder = DatabaseMetaFactory.getByDbType(currentDbType);
-        currentSchema = getSchema();
     }
 
     //根据connection获取schema
-    protected String getSchema() {
+    private String getSchema(String jdbcUsername) {
         String res = null;
         try {
             res = connection.getCatalog();
@@ -89,13 +97,15 @@ public abstract class BaseQueryTool implements QueryToolInterface {
             try {
                 res = connection.getSchema();
             } catch (SQLException e1) {
-                e1.printStackTrace();
+                logger.error("[SQLException getSchema Exception] --> "
+                        + "the exception message is:" + e1.getMessage());
             }
-            e.printStackTrace();
+            logger.error("[getSchema Exception] --> "
+                    + "the exception message is:" + e.getMessage());
         }
         // 如果res是null，则将用户名当作 schema
-        if (StrUtil.isBlank(res)) {
-            res = jobJdbcDatasource.getJdbcUsername().toUpperCase();
+        if (StrUtil.isBlank(res) && StringUtils.isNotBlank(jdbcUsername)) {
+            res = jdbcUsername.toUpperCase();
         }
         return res;
     }
@@ -132,7 +142,6 @@ public abstract class BaseQueryTool implements QueryToolInterface {
                 e.setIfPrimaryKey(false);
             }
         });
-
         return tableInfo;
     }
 
@@ -145,7 +154,8 @@ public abstract class BaseQueryTool implements QueryToolInterface {
         try {
             res = JdbcUtils.executeQuery(connection, sqlQueryTableNameComment, ImmutableList.of(currentSchema, tableName));
         } catch (SQLException e) {
-            e.printStackTrace();
+            logger.error("[getTableInfo Exception] --> "
+                    + "the exception message is:" + e.getMessage());
         }
         return res;
     }
@@ -158,7 +168,8 @@ public abstract class BaseQueryTool implements QueryToolInterface {
         try {
             res = JdbcUtils.executeQuery(connection, sqlQueryTables, ImmutableList.of(currentSchema));
         } catch (SQLException e) {
-            e.printStackTrace();
+            logger.error("[getTables Exception] --> "
+                    + "the exception message is:" + e.getMessage());
         }
         return res;
     }
@@ -184,29 +195,29 @@ public abstract class BaseQueryTool implements QueryToolInterface {
             //构建 fullColumn
             fullColumn = buildFullColumn(dasColumns);
 
-            logger.info("fullColumn: ");
-            fullColumn.forEach(e -> logger.info(e.toString()));
-
         } catch (SQLException e) {
-            e.printStackTrace();
+            logger.error("[getColumns Exception] --> "
+                    + "the exception message is:" + e.getMessage());
         }
         return fullColumn;
     }
 
-    protected List<ColumnInfo> buildFullColumn(List<DasColumn> dasColumns) {
+    private List<ColumnInfo> buildFullColumn(List<DasColumn> dasColumns) {
         List<ColumnInfo> res = Lists.newArrayList();
         dasColumns.forEach(e -> {
             ColumnInfo columnInfo = new ColumnInfo();
             columnInfo.setName(e.getColumnName());
             columnInfo.setComment(e.getColumnComment());
-            columnInfo.setType(e.getColumnClassName());
+            columnInfo.setType(e.getColumnTypeName());
+            columnInfo.setIfPrimaryKey(e.isIsprimaryKey());
+            columnInfo.setIsnull(e.getIsNull());
             res.add(columnInfo);
         });
         return res;
     }
 
     //构建DasColumn对象
-    public List<DasColumn> buildDasColumn(String tableName, ResultSetMetaData metaData) {
+    private List<DasColumn> buildDasColumn(String tableName, ResultSetMetaData metaData) {
         List<DasColumn> res = Lists.newArrayList();
         try {
             int columnCount = metaData.getColumnCount();
@@ -215,47 +226,75 @@ public abstract class BaseQueryTool implements QueryToolInterface {
                 dasColumn.setColumnClassName(metaData.getColumnClassName(i));
                 dasColumn.setColumnTypeName(metaData.getColumnTypeName(i));
                 dasColumn.setColumnName(metaData.getColumnName(i));
+                dasColumn.setIsNull(metaData.isNullable(i));
+
                 res.add(dasColumn);
             }
 
             Statement statement = connection.createStatement();
-            res.forEach(e -> {
-                String sqlQueryComment = sqlBuilder.getSQLQueryComment(currentSchema, tableName, e.getColumnName());
-                //查询字段注释
-                try {
-                    ResultSet resultSetComment = statement.executeQuery(sqlQueryComment);
-                    while (resultSetComment.next()) {
-                        e.setColumnComment(resultSetComment.getString(1));
-                    }
-                } catch (SQLException e1) {
-                    e1.printStackTrace();
+
+            if (currentDatabase.equals(JdbcConstants.MYSQL) || currentDatabase.equals(JdbcConstants.ORACLE)) {
+                DatabaseMetaData databaseMetaData = connection.getMetaData();
+
+                ResultSet resultSet = databaseMetaData.getPrimaryKeys(null, null, tableName);
+
+                while (resultSet.next()) {
+                    String name = resultSet.getString("COLUMN_NAME");
+                    res.forEach(e -> {
+                        if (e.getColumnName().equals(name)) {
+                            e.setIsprimaryKey(true);
+
+                        } else {
+                            e.setIsprimaryKey(false);
+                        }
+                    });
                 }
-            });
+
+                res.forEach(e -> {
+                    String sqlQueryComment = sqlBuilder.getSQLQueryComment(currentSchema, tableName, e.getColumnName());
+                    //查询字段注释
+                    try {
+                        ResultSet resultSetComment = statement.executeQuery(sqlQueryComment);
+                        while (resultSetComment.next()) {
+                            e.setColumnComment(resultSetComment.getString(1));
+                        }
+                        JdbcUtils.close(resultSetComment);
+                    } catch (SQLException e1) {
+                        logger.error("[buildDasColumn executeQuery Exception] --> "
+                                + "the exception message is:" + e1.getMessage());
+                    }
+                });
+            }
+
+            JdbcUtils.close(statement);
         } catch (SQLException e) {
-            e.printStackTrace();
+            logger.error("[buildDasColumn Exception] --> "
+                    + "the exception message is:" + e.getMessage());
         }
         return res;
     }
 
     //获取指定表的主键，可能是多个，所以用list
-    public List<String> getPrimaryKeys(String tableName) {
+    private List<String> getPrimaryKeys(String tableName) {
         List<String> res = Lists.newArrayList();
         String sqlQueryPrimaryKey = sqlBuilder.getSQLQueryPrimaryKey();
         try {
-            List<Map<String, Object>> pkColumns = JdbcUtils.executeQuery(datasource, sqlQueryPrimaryKey, ImmutableList.of(currentSchema, tableName));
+            List<Map<String, Object>> pkColumns = JdbcUtils.executeQuery(connection, sqlQueryPrimaryKey, ImmutableList.of(currentSchema, tableName));
             //返回主键名称即可
-            pkColumns.stream().forEach(e -> res.add((String) new ArrayList<>(e.values()).get(0)));
+            pkColumns.forEach(e -> res.add((String) new ArrayList<>(e.values()).get(0)));
         } catch (SQLException e) {
-            e.printStackTrace();
+            logger.error("[getPrimaryKeys Exception] --> "
+                    + "the exception message is:" + e.getMessage());
         }
         return res;
     }
 
     @Override
-    public List<String> getColumnNames(String tableName) {
+    public List<String> getColumnNames(String tableName, String datasource) {
 
         List<String> res = Lists.newArrayList();
         Statement stmt = null;
+        ResultSet rs = null;
         try {
             //获取查询指定表所有字段的sql语句
             String querySql = sqlBuilder.getSQLQueryFields(tableName);
@@ -263,21 +302,56 @@ public abstract class BaseQueryTool implements QueryToolInterface {
 
             //获取所有字段
             stmt = connection.createStatement();
-            ResultSet resultSet = stmt.executeQuery(querySql);
-            ResultSetMetaData metaData = resultSet.getMetaData();
+            rs = stmt.executeQuery(querySql);
+            ResultSetMetaData metaData = rs.getMetaData();
 
             int columnCount = metaData.getColumnCount();
             for (int i = 1; i <= columnCount; i++) {
-                res.add(metaData.getColumnName(i));
+                String columnName = metaData.getColumnName(i);
+                if (JdbcConstants.HIVE.equals(datasource)) {
+                    if (columnName.contains(Constants.SPLIT_POINT)) {
+                        res.add(i - 1 + Constants.SPLIT_SCOLON + columnName.substring(columnName.indexOf(Constants.SPLIT_POINT) + 1) + Constants.SPLIT_SCOLON + metaData.getColumnTypeName(i));
+                    } else {
+                        res.add(i - 1 + Constants.SPLIT_SCOLON + columnName + Constants.SPLIT_SCOLON + metaData.getColumnTypeName(i));
+                    }
+                } else {
+                    res.add(columnName);
+                }
+
             }
-//            logger.info("res: ");
-//            res.forEach(e -> logger.info(e.toString()));
         } catch (SQLException e) {
-            e.printStackTrace();
+            logger.error("[getColumnNames Exception] --> "
+                    + "the exception message is:" + e.getMessage());
         } finally {
+            JdbcUtils.close(rs);
             JdbcUtils.close(stmt);
         }
         return res;
+    }
+
+    @Override
+    public List<String> getTableNames(String tableSchema) {
+        List<String> tables = new ArrayList<String>();
+        Statement stmt = null;
+        ResultSet rs = null;
+        try {
+            stmt = connection.createStatement();
+            //获取sql
+            String sql = getSQLQueryTables(tableSchema);
+            rs = stmt.executeQuery(sql);
+            while (rs.next()) {
+                String tableName = rs.getString(1);
+                tables.add(tableName);
+            }
+            tables.sort(Comparator.naturalOrder());
+        } catch (SQLException e) {
+            logger.error("[getTableNames Exception] --> "
+                    + "the exception message is:" + e.getMessage());
+        } finally {
+            JdbcUtils.close(rs);
+            JdbcUtils.close(stmt);
+        }
+        return tables;
     }
 
     @Override
@@ -295,12 +369,31 @@ public abstract class BaseQueryTool implements QueryToolInterface {
                 tables.add(tableName);
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            logger.error("[getTableNames Exception] --> "
+                    + "the exception message is:" + e.getMessage());
         } finally {
             JdbcUtils.close(rs);
             JdbcUtils.close(stmt);
         }
         return tables;
+    }
+
+    public Boolean dataSourceTest() {
+        try {
+            DatabaseMetaData metaData = connection.getMetaData();
+            if (metaData.getDatabaseProductName().length() > 0) {
+                return true;
+            }
+        } catch (SQLException e) {
+            logger.error("[dataSourceTest Exception] --> "
+                    + "the exception message is:" + e.getMessage());
+        }
+        return false;
+    }
+
+
+    protected String getSQLQueryTables(String tableSchema) {
+        return sqlBuilder.getSQLQueryTables(tableSchema);
     }
 
     /**
@@ -313,17 +406,18 @@ public abstract class BaseQueryTool implements QueryToolInterface {
     }
 
     @Override
-    public List<String> getColumnsByQuerySql(String querySql) {
+    public List<String> getColumnsByQuerySql(String querySql) throws SQLException {
 
         List<String> res = Lists.newArrayList();
         Statement stmt = null;
+        ResultSet rs = null;
         try {
-            String sql = "";
+            querySql = querySql.replace(";", "");
             //拼装sql语句，在后面加上 where 1=0 即可
-            sql = querySql.concat(" where 1=0");
+            String sql = querySql.concat(" where 1=0");
             //判断是否已有where，如果是，则加 and 1=0
             //从最后一个 ) 开始找 where，或者整个语句找
-            if (querySql.indexOf(")") != -1) {
+            if (querySql.contains(")")) {
                 if (querySql.substring(querySql.indexOf(")")).contains("where")) {
                     sql = querySql.concat(" and 1=0");
                 }
@@ -332,25 +426,90 @@ public abstract class BaseQueryTool implements QueryToolInterface {
                     sql = querySql.concat(" and 1=0");
                 }
             }
-
-            logger.info("querySql: {}", sql);
-
             //获取所有字段
             stmt = connection.createStatement();
-            ResultSet resultSet = stmt.executeQuery(sql);
-            ResultSetMetaData metaData = resultSet.getMetaData();
+            rs = stmt.executeQuery(sql);
+            ResultSetMetaData metaData = rs.getMetaData();
 
             int columnCount = metaData.getColumnCount();
             for (int i = 1; i <= columnCount; i++) {
                 res.add(metaData.getColumnName(i));
             }
-//            logger.info("res: ");
-//            res.forEach(e -> logger.info(e.toString()));
-        } catch (SQLException e) {
-            e.printStackTrace();
         } finally {
+            JdbcUtils.close(rs);
             JdbcUtils.close(stmt);
         }
         return res;
+    }
+
+    @Override
+    public long getMaxIdVal(String tableName, String primaryKey) {
+        Statement stmt = null;
+        ResultSet rs = null;
+        long maxVal = 0;
+        try {
+            stmt = connection.createStatement();
+            //获取sql
+            String sql = getSQLMaxID(tableName, primaryKey);
+            rs = stmt.executeQuery(sql);
+            rs.next();
+            maxVal = rs.getLong(1);
+        } catch (SQLException e) {
+            logger.error("[getMaxIdVal Exception] --> "
+                    + "the exception message is:" + e.getMessage());
+        } finally {
+            JdbcUtils.close(rs);
+            JdbcUtils.close(stmt);
+        }
+
+
+        return maxVal;
+    }
+
+    private String getSQLMaxID(String tableName, String primaryKey) {
+        return sqlBuilder.getMaxId(tableName, primaryKey);
+    }
+
+    public void executeCreateTableSql(String querySql) {
+        if (StringUtils.isBlank(querySql)) {
+            return;
+        }
+        Statement stmt = null;
+        try {
+            stmt = connection.createStatement();
+            stmt.executeUpdate(querySql);
+        } catch (SQLException e) {
+            logger.error("[executeCreateTableSql Exception] --> "
+                    + "the exception message is:" + e.getMessage());
+        } finally {
+            JdbcUtils.close(stmt);
+        }
+    }
+
+    public List<String> getTableSchema() {
+        List<String> schemas = new ArrayList<>();
+        Statement stmt = null;
+        ResultSet rs = null;
+        try {
+            stmt = connection.createStatement();
+            //获取sql
+            String sql = getSQLQueryTableSchema();
+            rs = stmt.executeQuery(sql);
+            while (rs.next()) {
+                String tableName = rs.getString(1);
+                schemas.add(tableName);
+            }
+        } catch (SQLException e) {
+            logger.error("[getTableNames Exception] --> "
+                    + "the exception message is:" + e.getMessage());
+        } finally {
+            JdbcUtils.close(rs);
+            JdbcUtils.close(stmt);
+        }
+        return schemas;
+    }
+
+    protected String getSQLQueryTableSchema() {
+        return sqlBuilder.getSQLQueryTableSchema();
     }
 }

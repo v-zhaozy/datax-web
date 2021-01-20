@@ -1,6 +1,7 @@
 package com.wugui.datax.admin.filter;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.alibaba.fastjson.JSON;
+import com.baomidou.mybatisplus.extension.api.R;
 import com.wugui.datax.admin.exception.TokenIsExpiredException;
 import com.wugui.datax.admin.util.JwtTokenUtils;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -31,7 +32,7 @@ public class JWTAuthorizationFilter extends BasicAuthenticationFilter {
                                     FilterChain chain) throws IOException, ServletException {
 
         String tokenHeader = request.getHeader(JwtTokenUtils.TOKEN_HEADER);
-        // 如果请求头中没有Authorization信息则直接放行了
+        // 如果请求头中没有Authorization信息则直接放行
         if (tokenHeader == null || !tokenHeader.startsWith(JwtTokenUtils.TOKEN_PREFIX)) {
             chain.doFilter(request, response);
             return;
@@ -43,9 +44,7 @@ public class JWTAuthorizationFilter extends BasicAuthenticationFilter {
             //返回json形式的错误信息
             response.setCharacterEncoding("UTF-8");
             response.setContentType("application/json; charset=utf-8");
-            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-            String reason = "统一处理，原因：" + e.getMessage();
-            response.getWriter().write(new ObjectMapper().writeValueAsString(reason));
+            response.getWriter().write(JSON.toJSONString(R.failed(e.getMessage())));
             response.getWriter().flush();
             return;
         }
@@ -57,8 +56,9 @@ public class JWTAuthorizationFilter extends BasicAuthenticationFilter {
         String token = tokenHeader.replace(JwtTokenUtils.TOKEN_PREFIX, "");
         boolean expiration = JwtTokenUtils.isExpiration(token);
         if (expiration) {
-            throw new TokenIsExpiredException("token超时了");
-        } else {
+            throw new TokenIsExpiredException("登录时间过长，请退出重新登录");
+        }
+        else {
             String username = JwtTokenUtils.getUsername(token);
             String role = JwtTokenUtils.getUserRole(token);
             if (username != null) {
